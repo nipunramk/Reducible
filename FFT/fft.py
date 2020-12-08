@@ -773,7 +773,7 @@ class TimeToFreq(GraphScene):
 		self.show_time_freq_domain()
 
 	def show_time_freq_domain(self):
-		rate, data = wf.read("/Users/nipun.ramk/Documents/manim-updated/manim/fft/two_tone.wav")
+		rate, data = wf.read("two_tone.wav")
 		data_len = 1485
 		points = zip(np.arange(0, data_len) * 1000 / rate, data[0:data_len])
 		coords = [self.coords_to_point(x, y) for x, y in points]
