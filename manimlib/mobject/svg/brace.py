@@ -1,15 +1,15 @@
 import numpy as np
 
 from manimlib.animation.composition import AnimationGroup
-from manimlib.animation.creation import FadeIn
-from manimlib.animation.creation import GrowFromCenter
 from manimlib.constants import *
+from manimlib.animation.fading import FadeIn
+from manimlib.animation.growing import GrowFromCenter
 from manimlib.mobject.svg.tex_mobject import TexMobject
 from manimlib.mobject.svg.tex_mobject import TextMobject
 from manimlib.mobject.types.vectorized_mobject import VMobject
 from manimlib.utils.config_ops import digest_config
 from manimlib.utils.space_ops import get_norm
-
+import copy
 
 class Brace(TexMobject):
     CONFIG = {

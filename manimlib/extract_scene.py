@@ -35,8 +35,10 @@ def open_file_if_needed(file_writer, **config):
                 os.startfile(file_path)
             else:
                 commands = []
-                if (current_os == "Linux"):
+                if current_os == "Linux":
                     commands.append("xdg-open")
+                elif current_os.startswith("CYGWIN"):
+                    commands.append("cygstart")
                 else:  # Assume macOS
                     commands.append("open")
 
@@ -114,12 +116,12 @@ def get_scenes_to_render(scene_classes, config):
             )
     if result:
         return result
-    return prompt_user_for_choice(scene_classes)
+    return [scene_classes[0]] if len(scene_classes) == 1 else prompt_user_for_choice(scene_classes)
 
 
 def get_scene_classes_from_module(module):
-    if hasattr(module, "ALL_SCENE_CLASSES"):
-        return module.ALL_SCENE_CLASSES
+    if hasattr(module, "SCENES_IN_ORDER"):
+        return module.SCENES_IN_ORDER
     else:
         return [
             member[1]

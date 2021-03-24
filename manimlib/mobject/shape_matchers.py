@@ -25,6 +25,7 @@ class BackgroundRectangle(SurroundingRectangle):
     CONFIG = {
         "color": BLACK,
         "stroke_width": 0,
+        "stroke_opacity": 0,
         "fill_opacity": 0.75,
         "buff": 0
     }
@@ -71,3 +72,14 @@ class Cross(VGroup):
                         )
         self.replace(mobject, stretch=True)
         self.set_stroke(self.stroke_color, self.stroke_width)
+
+
+class Underline(Line):
+    CONFIG = {
+        "buff": SMALL_BUFF,
+    }
+
+    def __init__(self, mobject, **kwargs):
+        super().__init__(LEFT, RIGHT, **kwargs)
+        self.match_width(mobject)
+        self.next_to(mobject, DOWN, buff=self.buff)

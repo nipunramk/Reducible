@@ -7,6 +7,7 @@ from manimlib.constants import PI
 from manimlib.constants import RIGHT
 from manimlib.constants import TAU
 from manimlib.utils.iterables import adjacent_pairs
+from manimlib.utils.simple_functions import fdiv
 
 
 def get_norm(vect):
@@ -140,10 +141,12 @@ def angle_of_vector(vector):
 def angle_between_vectors(v1, v2):
     """
     Returns the angle between two 3D vectors.
-    This angle will always be btw 0 and TAU/2.
+    This angle will always be btw 0 and pi
     """
-    diff = (angle_of_vector(v1) - angle_of_vector(v2)) % TAU
-    return min(diff, TAU - diff)
+    return np.arccos(fdiv(
+        np.dot(v1, v2),
+        get_norm(v1) * get_norm(v2)
+    ))
 
 
 def project_along_vector(point, vector):
@@ -202,6 +205,9 @@ def center_of_mass(points):
     return sum(points) / len(points)
 
 
+def midpoint(point1, point2):
+    return center_of_mass([point1, point2])
+
 def line_intersection(line1, line2):
     """
     return intersection point of two lines,
@@ -230,3 +236,21 @@ def get_winding_number(points):
         d_angle = ((d_angle + PI) % TAU) - PI
         total_angle += d_angle
     return total_angle / TAU
+# Reducible specific change for handling 3D arrows
+def phi_of_vector(vector):
+    vector += 1e-8
+    xy = complex(*vector[:2])
+    if xy == 0:
+        return 0
+    a = ((vector[:1])**2 + (vector[1:2])**2)**(1/2)
+    vector[0] = a
+    vector[1] = vector[2]
+    return np.angle(complex(*vector[:2]))
+    xy = complex(*vector[:2])
+    if xy == 0:
+        return 0
+    a = ((vector[:1])**2 + (vector[1:2])**2)**(1/2)
+    vector[0] = a
+    vector[1] = vector[2]
+    return np.angle(complex(*vector[:2]))
+# End change

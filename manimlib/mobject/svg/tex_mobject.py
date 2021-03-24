@@ -32,7 +32,6 @@ class SingleStringTexMobject(SVGMobject):
         "should_center": True,
         "height": None,
         "organize_left_to_right": False,
-        "propagate_style_to_family": True,
         "alignment": "",
     }
 
@@ -67,6 +66,7 @@ class SingleStringTexMobject(SVGMobject):
             # Need to add blank subscript or superscript
             tex.endswith("_"),
             tex.endswith("^"),
+            tex.endswith("dot"),
         ])
         if should_add_filler:
             filler = "{\\quad}"
@@ -77,6 +77,10 @@ class SingleStringTexMobject(SVGMobject):
 
         if tex == "":
             tex = "\\quad"
+
+        # To keep files from starting with a line break
+        if tex.startswith("\\\\"):
+            tex = tex.replace("\\\\", "\\quad\\\\")
 
         # Handle imbalanced \left and \right
         num_lefts, num_rights = [
@@ -125,7 +129,7 @@ class SingleStringTexMobject(SVGMobject):
         return TexSymbol(path_string)
 
     def organize_submobjects_left_to_right(self):
-        self.sort_submobjects(lambda p: p[0])
+        self.sort(lambda p: p[0])
         return self
 
 
@@ -157,7 +161,9 @@ class TexMobject(SingleStringTexMobject):
         split_list = split_string_list_to_isolate_substrings(
             tex_strings, *substrings_to_isolate
         )
-        split_list = list(map(str.strip, split_list))
+        if self.arg_separator == ' ':
+            split_list = [str(x).strip() for x in split_list]
+        #split_list = list(map(str.strip, split_list))
         split_list = [s for s in split_list if s != '']
         return split_list
 
@@ -169,8 +175,10 @@ class TexMobject(SingleStringTexMobject):
         """
         new_submobjects = []
         curr_index = 0
+        config = dict(self.CONFIG)
+        config["alignment"] = ""
         for tex_string in self.tex_strings:
-            sub_tex_mob = SingleStringTexMobject(tex_string, **self.CONFIG)
+            sub_tex_mob = SingleStringTexMobject(tex_string, **config)
             num_submobs = len(sub_tex_mob.submobjects)
             new_index = curr_index + num_submobs
             if num_submobs == 0:
@@ -231,24 +239,17 @@ class TexMobject(SingleStringTexMobject):
         part = self.get_part_by_tex(tex, **kwargs)
         return self.index_of_part(part)
 
-    def sort_submobjects_alphabetically(self):
+    def sort_alphabetically(self):
         self.submobjects.sort(
             key=lambda m: m.get_tex_string()
         )
-
-    def split(self):
-        # Many old scenes assume that when you pass in a single string
-        # to TexMobject, it indexes across the characters.
-        if len(self.submobjects) == 1:
-            return self.submobjects[0].split()
-        else:
-            return super(TexMobject, self).split()
 
 
 class TextMobject(TexMobject):
     CONFIG = {
         "template_tex_file_body": TEMPLATE_TEXT_FILE_BODY,
         "alignment": "\\centering",
+        "arg_separator": "",
     }
 
 
@@ -268,7 +269,7 @@ class BulletedList(TextMobject):
             dot = TexMobject("\\cdot").scale(self.dot_scale_factor)
             dot.next_to(part[0], LEFT, SMALL_BUFF)
             part.add_to_back(dot)
-        self.arrange_submobjects(
+        self.arrange(
             DOWN,
             aligned_edge=LEFT,
             buff=self.buff

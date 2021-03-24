@@ -1,9 +1,10 @@
 import itertools as it
 import random
 
-from manimlib.animation.transform import ApplyMethod
 from manimlib.animation.transform import ReplacementTransform
 from manimlib.animation.transform import Transform
+from manimlib.animation.transform import ApplyMethod
+from manimlib.animation.composition import LaggedStart
 from manimlib.constants import *
 from manimlib.for_3b1b_videos.pi_creature import Mortimer
 from manimlib.for_3b1b_videos.pi_creature import PiCreature
@@ -11,6 +12,7 @@ from manimlib.for_3b1b_videos.pi_creature import Randolph
 from manimlib.for_3b1b_videos.pi_creature_animations import Blink
 from manimlib.for_3b1b_videos.pi_creature_animations import PiCreatureBubbleIntroduction
 from manimlib.for_3b1b_videos.pi_creature_animations import RemovePiCreatureBubble
+from manimlib.mobject.mobject import Group
 from manimlib.mobject.frame import ScreenRectangle
 from manimlib.mobject.svg.drawings import SpeechBubble
 from manimlib.mobject.svg.drawings import ThoughtBubble
@@ -146,41 +148,35 @@ class PiCreatureScene(Scene):
         self.pi_creature_thinks(
             self.get_primary_pi_creature(), *content, **kwargs)
 
-    def compile_play_args_to_animation_list(self, *args):
+    def compile_play_args_to_animation_list(self, *args, **kwargs):
         """
         Add animations so that all pi creatures look at the
         first mobject being animated with each .play call
         """
-        animations = Scene.compile_play_args_to_animation_list(self, *args)
+        animations = Scene.compile_play_args_to_animation_list(self, *args, **kwargs)
+        anim_mobjects = Group(*[a.mobject for a in animations])
+        all_movers = anim_mobjects.get_family()
         if not self.any_pi_creatures_on_screen():
             return animations
 
-        non_pi_creature_anims = [anim for anim in animations if anim.mobject not in self.get_pi_creatures()]
+        pi_creatures = self.get_on_screen_pi_creatures()
+        non_pi_creature_anims = [
+            anim
+            for anim in animations
+            if len(set(anim.mobject.get_family()).intersection(pi_creatures)) == 0
+        ]
         if len(non_pi_creature_anims) == 0:
             return animations
+        # Get pi creatures to look at whatever
+        # is being animated
         first_anim = non_pi_creature_anims[0]
-        # Look at ending state
-        first_anim.update(1)
-        point_of_interest = first_anim.mobject.get_center()
-        first_anim.update(0)
-
-        for pi_creature in self.get_pi_creatures():
-            if pi_creature not in self.get_mobjects():
-                continue
-            if pi_creature in first_anim.mobject.get_family():
-                continue
-            anims_with_pi_creature = [anim for anim in animations if pi_creature in anim.mobject.get_family()]
-            for anim in anims_with_pi_creature:
-                if isinstance(anim, Transform):
-                    index = anim.mobject.get_family().index(pi_creature)
-                    target_family = anim.target_mobject.get_family()
-                    target = target_family[index]
-                    if isinstance(target, PiCreature):
-                        target.look_at(point_of_interest)
-            if not anims_with_pi_creature:
-                animations.append(
-                    ApplyMethod(pi_creature.look_at, point_of_interest)
-                )
+        main_mobject = first_anim.mobject
+        for pi_creature in pi_creatures:
+            if pi_creature not in all_movers:
+                animations.append(ApplyMethod(
+                    pi_creature.look_at,
+                    main_mobject,
+                ))
         return animations
 
     def blink(self):
@@ -208,21 +204,24 @@ class PiCreatureScene(Scene):
         ])
         return self
 
-    def wait(self, time=1, blink=True):
+    def wait(self, time=1, blink=True, **kwargs):
+        if "stop_condition" in kwargs:
+            self.non_blink_wait(time, **kwargs)
+            return
         while time >= 1:
             time_to_blink = self.total_wait_time % self.seconds_to_blink == 0
             if blink and self.any_pi_creatures_on_screen() and time_to_blink:
                 self.blink()
             else:
-                self.non_blink_wait()
+                self.non_blink_wait(**kwargs)
             time -= 1
             self.total_wait_time += 1
         if time > 0:
-            self.non_blink_wait(time)
+            self.non_blink_wait(time, **kwargs)
         return self
 
-    def non_blink_wait(self, time=1):
-        Scene.wait(self, time)
+    def non_blink_wait(self, time=1, **kwargs):
+        Scene.wait(self, time, **kwargs)
         return self
 
     def change_mode(self, mode):
@@ -255,6 +254,9 @@ class TeacherStudentsScene(PiCreatureScene):
         "student_scale_factor": 0.8,
         "seconds_to_blink": 2,
         "screen_height": 3,
+        "camera_config": {
+            "background_color": DARKER_GREY,
+        },
     }
 
     def setup(self):
@@ -271,7 +273,7 @@ class TeacherStudentsScene(PiCreatureScene):
             Randolph(color=c)
             for c in self.student_colors
         ])
-        self.students.arrange_submobjects(RIGHT)
+        self.students.arrange(RIGHT)
         self.students.scale(self.student_scale_factor)
         self.students.to_corner(DOWN + LEFT)
         self.teacher.look_at(self.students[-1].eyes)
@@ -332,12 +334,20 @@ class TeacherStudentsScene(PiCreatureScene):
         if "look_at_arg" in kwargs:
             for pi in target:
                 pi.look_at(kwargs["look_at_arg"])
-        submobject_mode = kwargs.get("submobject_mode", "lagged_start")
-        return Transform(
-            start, target,
-            submobject_mode=submobject_mode,
-            run_time=2
+        anims = [
+            Transform(s, t)
+            for s, t in zip(start, target)
+        ]
+        return LaggedStart(
+            *anims,
+            lag_ratio=kwargs.get("lag_ratio", 0.5),
+            run_time=1,
         )
+        # return Transform(
+        #     start, target,
+        #     lag_ratio=lag_ratio,
+        #     run_time=2
+        # )
 
     def zoom_in_on_thought_bubble(self, bubble=None, radius=FRAME_Y_RADIUS + FRAME_X_RADIUS):
         if bubble is None:

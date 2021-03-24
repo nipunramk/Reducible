@@ -33,6 +33,7 @@ class ParametricSurface(VGroup):
 
     def __init__(self, func, **kwargs):
         VGroup.__init__(self, **kwargs)
+        self.func = func
         self.setup_in_uv_space()
         self.apply_function(lambda p: func(p[0], p[1]))
         if self.should_make_jagged:
@@ -128,7 +129,6 @@ class Cube(VGroup):
         "fill_opacity": 0.75,
         "fill_color": BLUE,
         "stroke_width": 0,
-        "propagate_style_to_family": True,
         "side_length": 2,
     }
 
@@ -138,7 +138,6 @@ class Cube(VGroup):
                 side_length=self.side_length,
                 shade_in_3d=True,
             )
-            face.make_jagged()
             face.flip()
             face.shift(self.side_length * OUT / 2.0)
             face.apply_matrix(z_to_vector(vect))

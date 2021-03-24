@@ -3,9 +3,9 @@ import warnings
 
 import numpy as np
 
-from manimlib.animation.transform import Transform
 from manimlib.constants import *
 from manimlib.mobject.mobject import Mobject
+from manimlib.mobject.geometry import Circle
 from manimlib.mobject.svg.drawings import ThoughtBubble
 from manimlib.mobject.svg.svg_mobject import SVGMobject
 from manimlib.mobject.svg.tex_mobject import TextMobject
@@ -13,12 +13,13 @@ from manimlib.mobject.types.vectorized_mobject import VGroup
 from manimlib.mobject.types.vectorized_mobject import VMobject
 from manimlib.utils.config_ops import digest_config
 from manimlib.utils.space_ops import get_norm
+from manimlib.utils.space_ops import normalize
 
-pi_creature_dir_maybe = os.path.join(MEDIA_DIR, "designs", "PiCreature")
+pi_creature_dir_maybe = os.path.join(MEDIA_DIR, "assets", "PiCreature")
 if os.path.exists(pi_creature_dir_maybe):
     PI_CREATURE_DIR = pi_creature_dir_maybe
 else:
-    PI_CREATURE_DIR = os.path.join(FILE_DIR)
+    PI_CREATURE_DIR = os.path.join("assets")
 
 PI_CREATURE_SCALE_FACTOR = 0.5
 
@@ -37,7 +38,6 @@ class PiCreature(SVGMobject):
         "stroke_width": 0,
         "stroke_color": BLACK,
         "fill_opacity": 1.0,
-        "propagate_style_to_family": True,
         "height": 3,
         "corner_scale_factor": 0.75,
         "flip_at_start": False,
@@ -46,6 +46,8 @@ class PiCreature(SVGMobject):
         # Range of proportions along body where arms are
         "right_arm_range": [0.55, 0.7],
         "left_arm_range": [.34, .462],
+        "pupil_to_eye_width_ratio": 0.4,
+        "pupil_dot_to_pupil_width_ratio": 0.3,
     }
 
     def __init__(self, mode="plain", **kwargs):
@@ -61,6 +63,7 @@ class PiCreature(SVGMobject):
         except Exception:
             warnings.warn("No %s design with mode %s" %
                           (self.file_name_prefix, mode))
+            # TODO, this needs to change to a different, better directory
             svg_file = os.path.join(
                 FILE_DIR,
                 "PiCreatures_plain.svg",
@@ -99,24 +102,40 @@ class PiCreature(SVGMobject):
             self.name_parts()
         self.mouth.set_fill(BLACK, opacity=1)
         self.body.set_fill(self.color, opacity=1)
-        self.pupils.set_fill(BLACK, opacity=1)
-        # self.pupils.set_stroke(DARK_GREY, width=1)
-        self.add_pupil_light_spot(self.pupils)
         self.eyes.set_fill(WHITE, opacity=1)
+        self.init_pupils()
         return self
 
-    def add_pupil_light_spot(self, pupils):
-        # Purely an artifact of how the SVGs were drawn.
-        # In a perfect world, this wouldn't be needed
-        for pupil in pupils:
-            index = 16
-            sub_points = pupil.points[:index]
-            pupil.points = pupil.points[index + 2:]
-            circle = VMobject()
-            circle.points = sub_points
-            circle.set_stroke(width=0)
-            circle.set_fill(WHITE, 1)
-            pupil.add(circle)
+    def init_pupils(self):
+        # Instead of what is drawn, make new circles.
+        # This is mostly because the paths associated
+        # with the eyes in all the drawings got slightly
+        # messed up.
+        for eye, pupil in zip(self.eyes, self.pupils):
+            pupil_r = eye.get_width() / 2
+            pupil_r *= self.pupil_to_eye_width_ratio
+            dot_r = pupil_r
+            dot_r *= self.pupil_dot_to_pupil_width_ratio
+
+            new_pupil = Circle(
+                radius=pupil_r,
+                color=BLACK,
+                fill_opacity=1,
+                stroke_width=0,
+            )
+            dot = Circle(
+                radius=dot_r,
+                color=WHITE,
+                fill_opacity=1,
+                stroke_width=0,
+            )
+            new_pupil.move_to(pupil)
+            pupil.become(new_pupil)
+            dot.shift(
+                new_pupil.get_boundary_point(UL) -
+                dot.get_boundary_point(UL)
+            )
+            pupil.add(dot)
 
     def copy(self):
         copy_mobject = SVGMobject.copy(self)
@@ -139,7 +158,7 @@ class PiCreature(SVGMobject):
         new_self.shift(self.eyes.get_center() - new_self.eyes.get_center())
         if hasattr(self, "purposeful_looking_direction"):
             new_self.look(self.purposeful_looking_direction)
-        Transform(self, new_self).update(1)
+        self.become(new_self)
         self.mode = mode
         return self
 
@@ -179,10 +198,11 @@ class PiCreature(SVGMobject):
         return self
 
     def get_looking_direction(self):
-        return np.sign(np.round(
-            self.pupils.get_center() - self.eyes.get_center(),
-            decimals=2
-        ))
+        vect = self.pupils.get_center() - self.eyes.get_center()
+        return normalize(vect)
+
+    def get_look_at_spot(self):
+        return self.eyes.get_center() + self.get_looking_direction()
 
     def is_flipped(self):
         return self.eyes.submobjects[0].get_center()[0] > \

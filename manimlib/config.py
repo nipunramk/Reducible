@@ -11,10 +11,8 @@ import manimlib.constants
 def parse_cli():
     try:
         parser = argparse.ArgumentParser()
-        module_location = parser.add_mutually_exclusive_group()
-        module_location.add_argument(
+        parser.add_argument(
             "file",
-            nargs="?",
             help="path to file holding the python code for the scene",
         )
         parser.add_argument(
@@ -48,9 +46,19 @@ def parse_cli():
             help="Render at a medium quality",
         ),
         parser.add_argument(
+            "--high_quality",
+            action="store_true",
+            help="Render at a high quality",
+        ),
+        parser.add_argument(
             "-g", "--save_pngs",
             action="store_true",
             help="Save each frame as a png",
+        ),
+        parser.add_argument(
+            "-i", "--save_as_gif",
+            action="store_true",
+            help="Save the video as gif",
         ),
         parser.add_argument(
             "-f", "--show_file_in_finder",
@@ -102,35 +110,24 @@ def parse_cli():
             action="store_true",
             help="Leave progress bars displayed in terminal",
         )
-
-        # For live streaming
-        module_location.add_argument(
-            "--livestream",
-            action="store_true",
-            help="Run in streaming mode",
+        parser.add_argument(
+            "--media_dir",
+            help="directory to write media",
+        )
+        video_group = parser.add_mutually_exclusive_group()
+        video_group.add_argument(
+            "--video_dir",
+            help="directory to write file tree for video",
+        )
+        video_group.add_argument(
+            "--video_output_dir",
+            help="directory to write video",
         )
         parser.add_argument(
-            "--to-twitch",
-            action="store_true",
-            help="Stream to twitch",
+            "--tex_dir",
+            help="directory to write tex",
         )
-        parser.add_argument(
-            "--with-key",
-            dest="twitch_key",
-            help="Stream key for twitch",
-        )
-        args = parser.parse_args()
-
-        if args.file is None and not args.livestream:
-            parser.print_help()
-            sys.exit(2)
-        if args.to_twitch and not args.livestream:
-            print("You must run in streaming mode in order to stream to twitch")
-            sys.exit(2)
-        if args.to_twitch and args.twitch_key is None:
-            print("Specify the twitch stream key with --with-key")
-            sys.exit(2)
-        return args
+        return parser.parse_args()
     except argparse.ArgumentError as err:
         print(str(err))
         sys.exit(2)
@@ -139,7 +136,7 @@ def parse_cli():
 def get_module(file_name):
     if file_name == "-":
         module = types.ModuleType("input_scenes")
-        code = "from big_ol_pile_of_manim_imports import *\n\n" + sys.stdin.read()
+        code = "from manimlib.imports import *\n\n" + sys.stdin.read()
         try:
             exec(code, module.__dict__)
             return module
@@ -161,10 +158,12 @@ def get_configuration(args):
         "write_to_movie": args.write_to_movie or not args.save_last_frame,
         "save_last_frame": args.save_last_frame,
         "save_pngs": args.save_pngs,
+        "save_as_gif": args.save_as_gif,
         # If -t is passed in (for transparent), this will be RGBA
         "png_mode": "RGBA" if args.transparent else "RGB",
         "movie_file_extension": ".mov" if args.transparent else ".mp4",
         "file_name": args.file_name,
+        "input_file_path": args.file,
     }
     if hasattr(module, "OUTPUT_DIRECTORY"):
         file_writer_config["output_directory"] = module.OUTPUT_DIRECTORY
@@ -180,7 +179,11 @@ def get_configuration(args):
         "start_at_animation_number": args.start_at_animation_number,
         "end_at_animation_number": None,
         "sound": args.sound,
-        "leave_progress_bars": args.leave_progress_bars
+        "leave_progress_bars": args.leave_progress_bars,
+        "media_dir": args.media_dir,
+        "video_dir": args.video_dir,
+        "video_output_dir": args.video_output_dir,
+        "tex_dir": args.tex_dir,
     }
 
     # Camera configuration
@@ -209,6 +212,8 @@ def get_camera_configuration(args):
         camera_config.update(manimlib.constants.LOW_QUALITY_CAMERA_CONFIG)
     elif args.medium_quality:
         camera_config.update(manimlib.constants.MEDIUM_QUALITY_CAMERA_CONFIG)
+    elif args.high_quality:
+        camera_config.update(manimlib.constants.HIGH_QUALITY_CAMERA_CONFIG)
     else:
         camera_config.update(manimlib.constants.PRODUCTION_QUALITY_CAMERA_CONFIG)
 
