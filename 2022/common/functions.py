@@ -33,6 +33,7 @@ def is_diff_med(dg, dr_dg, db_dg):
         dr_dg > -9 and dr_dg < 8 and dg > -33 and dg < 32 and db_dg > -9 and db_dg < 8
     )
 
+
 def get_glowing_surround_rect(
     pixel, buff_min=0, buff_max=0.15, color=REDUCIBLE_YELLOW, n=40, opacity_multiplier=1
 ):
@@ -46,44 +47,75 @@ def get_glowing_surround_rect(
         rect.set_stroke(color, width=0.5, opacity=1 - i / n)
     return glowing_rect
 
+
 def get_glowing_surround_circle(
-    circle, buff_min=0, buff_max=0.15, color=REDUCIBLE_YELLOW, n=40, opacity_multiplier=1
+    circle,
+    buff_min=0,
+    buff_max=0.15,
+    color=REDUCIBLE_YELLOW,
+    n=40,
+    opacity_multiplier=1,
 ):
     current_radius = circle.width / 2
     glowing_circle = VGroup(
         *[
-            Circle(radius=current_radius+interpolate(buff_min, buff_max, b))
+            Circle(radius=current_radius + interpolate(buff_min, buff_max, b))
             for b in np.linspace(0, 1, n)
         ]
     )
     for i, c in enumerate(glowing_circle):
-        c.set_stroke(color, width=0.5, opacity=1- i / n)
+        c.set_stroke(color, width=0.5, opacity=1 - i / n)
     return glowing_circle.move_to(circle.get_center())
+
 
 def g2h(n):
     """Abbreviation for grayscale to hex"""
     return rgb_to_hex((n, n, n))
 
-def align_text_vertically(*text, buff=DEFAULT_MOBJECT_TO_MOBJECT_BUFFER, aligned_edge=ORIGIN):
-	start_text = text[0]
-	for i in range(1, len(text)):
-		next_text = text[i]
-		next_text.next_to(start_text, DOWN, buff=buff, aligned_edge=aligned_edge)
-		start_text = next_text
 
-	return VGroup(*text)
+def align_text_vertically(
+    *text, buff=DEFAULT_MOBJECT_TO_MOBJECT_BUFFER, aligned_edge=ORIGIN
+):
+    start_text = text[0]
+    for i in range(1, len(text)):
+        next_text = text[i]
+        next_text.next_to(start_text, DOWN, buff=buff, aligned_edge=aligned_edge)
+        start_text = next_text
 
-def get_matching_text(text, to_match, font='SF Mono', weight=MEDIUM, color=WHITE):
-	return Text(text, font=font, weight=MEDIUM).scale_to_fit_height(to_match.height).move_to(to_match.get_center()).set_color(color)
+    return VGroup(*text)
+
+
+def get_matching_text(text, to_match, font="SF Mono", weight=MEDIUM, color=WHITE):
+    return (
+        Text(text, font=font, weight=MEDIUM)
+        .scale_to_fit_height(to_match.height)
+        .move_to(to_match.get_center())
+        .set_color(color)
+    )
+
 
 def gray_scale_value_to_hex(value):
-    assert value >= 0 and value <= 255, f'Invalid value {value}'
+    assert value >= 0 and value <= 255, f"Invalid value {value}"
     integer_value = int(round(value))
     hex_string = hex(integer_value).split("x")[-1]
     if integer_value < 16:
         hex_string = "0" + hex_string
     return "#" + hex_string * 3
 
+
 def g2h(n):
     """Abbreviation for grayscale to hex"""
     return rgb_to_hex((n, n, n))
+
+
+def matrix_to_mob(matrix: np.ndarray, h_buff=2.3, v_buff=1.3):
+    str_repr = [[f"{a:.3f}" for a in row] for row in matrix]
+    return Matrix(
+        str_repr,
+        left_bracket="[",
+        right_bracket="]",
+        element_to_mobject=Text,
+        element_to_mobject_config={"font": REDUCIBLE_MONO},
+        h_buff=h_buff,
+        v_buff=v_buff,
+    ).scale(0.3)

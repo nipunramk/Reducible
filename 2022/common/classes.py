@@ -2,6 +2,7 @@ from manim import *
 from functions import *
 from reducible_colors import *
 from typing import Iterable, List
+from manim.mobject.geometry.tips import ArrowTriangleFilledTip
 
 
 class Pixel(Square):
@@ -221,7 +222,8 @@ class RVariable(VMobject):
 
         super().__init__(**kwargs)
         self.add(self.label, self.value)
-        
+
+
 class Module(VGroup):
     def __init__(
         self,
@@ -247,12 +249,20 @@ class Module(VGroup):
         if isinstance(text, list):
             text_mob = VGroup()
             for string in text:
-                text = Text(str(string), weight=text_weight, font="CMU Serif").scale(text_scale)
+                text = Text(str(string), weight=text_weight, font="CMU Serif").scale(
+                    text_scale
+                )
                 text_mob.add(text)
-            self.text = text_mob.arrange(DOWN, buff=SMALL_BUFF * 2)
+            self.text = (
+                text_mob.arrange(DOWN, buff=SMALL_BUFF * 2)
+                .scale_to_fit_width(self.rect.width - self.rect.width * 0.15)
+                .scale(text_scale)
+            )
         else:
-            self.text = Text(str(text), weight=text_weight, font="CMU Serif").scale(
-            text_scale
+            self.text = (
+                Text(str(text), weight=text_weight, font="CMU Serif")
+                .scale_to_fit_width(self.rect.width - self.rect.width * 0.15)
+                .scale(text_scale)
             )
         self.text.next_to(
             self.rect,
@@ -264,27 +274,38 @@ class Module(VGroup):
         super().__init__(self.rect, self.text, **kwargs)
         # super().arrange(ORIGIN)
 
+
 class Node:
-    def __init__(self, freq, key=''):
+    def __init__(self, freq, key=""):
         self.freq = freq
         self.key = key
         self.left = None
         self.right = None
+
     def __repr__(self):
-        return 'Node(freq={0}, key={1})'.format(self.freq, self.key)
+        return "Node(freq={0}, key={1})".format(self.freq, self.key)
+
     def __lt__(self, other):
         return self.freq < other.freq
+
     def __gt__(self, other):
         return self.freq > other.freq
 
-    def generate_mob(self, text_scale=0.6, radius=0.5, is_leaf=False, key_scale=None, key_color=PURE_BLUE):
+    def generate_mob(
+        self,
+        text_scale=0.6,
+        radius=0.5,
+        is_leaf=False,
+        key_scale=None,
+        key_color=PURE_BLUE,
+    ):
         # geometry is first, then text mobject
         # characters will be handled with separate geometry
         # nodes that are parents will have keys that concatenate the childs
         # since huffman trees are full binary trees, guaranteed to be not length 1
         if len(self.key) > 3 and not is_leaf:
             self.is_leaf = False
-            freq = Text(str(self.freq), font='SF Mono', weight=MEDIUM).scale(text_scale)
+            freq = Text(str(self.freq), font="SF Mono", weight=MEDIUM).scale(text_scale)
             node = Circle(radius=radius).set_color(REDUCIBLE_VIOLET)
             node.set_fill(color=REDUCIBLE_PURPLE_DARKER, opacity=1)
             freq.move_to(node.get_center())
@@ -295,11 +316,17 @@ class Node:
         self.is_leaf = True
         freq_box = Rectangle(height=0.5, width=1).set_color(REDUCIBLE_GREEN_LIGHTER)
         freq_box.set_fill(color=REDUCIBLE_GREEN_DARKER, opacity=1)
-        freq_interior = Text(str(self.freq), font='SF Mono', weight=MEDIUM).scale(text_scale - SMALL_BUFF)
+        freq_interior = Text(str(self.freq), font="SF Mono", weight=MEDIUM).scale(
+            text_scale - SMALL_BUFF
+        )
         freq_interior.move_to(freq_box.get_center())
         freq = VGroup(freq_box, freq_interior)
-        key_box = Rectangle(height=1, width=1).set_color(REDUCIBLE_VIOLET).set_fill(color=key_color, opacity=1)
-        key_interior = Text(self.key, font='SF Mono', weight=MEDIUM).scale(text_scale)
+        key_box = (
+            Rectangle(height=1, width=1)
+            .set_color(REDUCIBLE_VIOLET)
+            .set_fill(color=key_color, opacity=1)
+        )
+        key_interior = Text(self.key, font="SF Mono", weight=MEDIUM).scale(text_scale)
         if key_scale:
             key_interior.scale(key_scale)
         key_interior.move_to(key_box.get_center())
@@ -312,6 +339,7 @@ class Node:
             self.left = child
         else:
             self.right = child
+
 
 class ReducibleBarChart(BarChart):
     """
@@ -374,7 +402,9 @@ class ReducibleBarChart(BarChart):
         if self.label_y_axis:
             labels = VGroup()
             for tick, value in zip(ticks, values):
-                label = Text(str(np.round(value, 2)), font=self.chart_font, weight=MEDIUM)
+                label = Text(
+                    str(np.round(value, 2)), font=self.chart_font, weight=MEDIUM
+                )
                 label.height = self.y_axis_label_height
                 label.next_to(tick, LEFT, SMALL_BUFF)
                 labels.add(label)
@@ -406,3 +436,52 @@ class ReducibleBarChart(BarChart):
         self.bars = bars
         self.bar_labels = bar_labels
 
+
+class CustomLabel(Text):
+    def __init__(self, label, font=REDUCIBLE_MONO, scale=1, weight=BOLD):
+        super().__init__(label, font=font, weight=weight)
+        self.scale(scale)
+
+
+class CustomCurvedArrow(CurvedArrow):
+    def __init__(self, start, end, tip_length=0.15, **kwargs):
+        super().__init__(start, end, **kwargs)
+        self.pop_tips()
+        self.add_tip(
+            tip_shape=ArrowTriangleFilledTip,
+            tip_length=tip_length,
+            at_start=False,
+        )
+
+    def set_opacity(self, opacity, family=True):
+        return super().set_opacity(opacity, family)
+
+    @override_animate(set_opacity)
+    def _set_opacity_animation(self, opacity=1, anim_args=None):
+        if anim_args is None:
+            anim_args = {}
+
+        animate_stroke = self.animate.set_stroke(opacity=opacity)
+        animate_tip = self.tip.animate.set_opacity(opacity)
+
+        return AnimationGroup(*[animate_stroke, animate_tip])
+
+
+class RCircularNode(VGroup):
+    def __init__(self, n=3, label_scale=1, **kwargs):
+        self.circle = (
+            Circle(color=REDUCIBLE_PURPLE)
+            .set_stroke(width=6)
+            .set_fill(REDUCIBLE_PURPLE_DARK_FILL, opacity=1)
+        )
+
+        self.text = (
+            Text(str(n), font=REDUCIBLE_MONO, weight=BOLD)
+            .set_stroke(BLACK, width=5, background=True)
+            .scale(label_scale)
+            .move_to(self.circle)
+        )
+        if n >= 10:
+            self.text.scale_to_fit_height(self.circle.height)
+
+        super().__init__(self.circle, self.text, **kwargs)
